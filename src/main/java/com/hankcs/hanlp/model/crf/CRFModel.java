@@ -68,7 +68,7 @@ public class CRFModel implements ICacheAble
 
     protected void onLoadTxtFinished()
     {
-        // do no thing
+        // do nothing
     }
 
     /**
@@ -162,7 +162,7 @@ public class CRFModel implements ICacheAble
         try
         {
             logger.info("开始缓存" + path + Predefine.BIN_EXT);
-            DataOutputStream out = new DataOutputStream(new FileOutputStream(path + Predefine.BIN_EXT));
+            DataOutputStream out = new DataOutputStream(IOUtil.newOutputStream(path + Predefine.BIN_EXT));
             CRFModel.save(out);
             out.close();
         }
@@ -398,7 +398,8 @@ public class CRFModel implements ICacheAble
     }
 
     /**
-     * 加载Bin形式的CRF++模型
+     * 加载Bin形式的CRF++模型<br>
+     *     注意该Bin形式不是CRF++的二进制模型,而是HanLP由CRF++的文本模型转换过来的私有格式
      * @param path
      * @return
      */

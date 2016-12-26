@@ -46,11 +46,6 @@ public class TestParse extends TestCase
         System.out.println(CRFDependencyParser.compute(termList));
     }
 
-    public void testSegAndParse() throws Exception
-    {
-        System.out.println(MaxEntDependencyParser.compute("我喜欢陈膺奥"));
-    }
-
     public void testMaxEntParser() throws Exception
     {
         HanLP.Config.enableDebug();
@@ -76,11 +71,11 @@ public class TestParse extends TestCase
 
     public void testNatureMap() throws Exception
     {
-        System.out.println('Ｏ' == 'Ｏ');
-        String text = "二Ｏ一二年四月五日";
-        List<Term> termList = NeuralNetworkDependencyParser.INSTANCE.getSegment().seg(text);
-        System.out.println(termList);
-        System.out.println(NeuralNetworkDependencyParser.compute(termList));
+//        System.out.println('Ｏ' == 'Ｏ');
+//        String text = "二Ｏ一二年四月五日";
+//        List<Term> termList = NeuralNetworkDependencyParser.INSTANCE.getSegment().seg(text);
+//        System.out.println(termList);
+//        System.out.println(NeuralNetworkDependencyParser.compute(termList));
     }
 
     public void testCrfParser() throws Exception

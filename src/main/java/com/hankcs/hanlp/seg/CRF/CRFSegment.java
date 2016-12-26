@@ -13,19 +13,22 @@ package com.hankcs.hanlp.seg.CRF;
 
 import com.hankcs.hanlp.HanLP;
 import com.hankcs.hanlp.algoritm.Viterbi;
+import com.hankcs.hanlp.collection.trie.bintrie.BinTrie;
 import com.hankcs.hanlp.corpus.tag.Nature;
 import com.hankcs.hanlp.dictionary.CoreDictionary;
 import com.hankcs.hanlp.dictionary.CoreDictionaryTransformMatrixDictionary;
+import com.hankcs.hanlp.dictionary.other.CharTable;
 import com.hankcs.hanlp.model.CRFSegmentModel;
+import com.hankcs.hanlp.model.crf.CRFModel;
+import com.hankcs.hanlp.model.crf.FeatureFunction;
 import com.hankcs.hanlp.model.crf.Table;
 import com.hankcs.hanlp.seg.CharacterBasedGenerativeModelSegment;
 import com.hankcs.hanlp.seg.Segment;
 import com.hankcs.hanlp.seg.common.Term;
 import com.hankcs.hanlp.seg.common.Vertex;
 import com.hankcs.hanlp.utility.CharacterHelper;
+import com.hankcs.hanlp.utility.GlobalObjectPool;
 
-import java.io.FileInputStream;
-import java.io.ObjectInputStream;
 import java.util.*;
 
 import static com.hankcs.hanlp.utility.Predefine.logger;
@@ -38,6 +41,38 @@ import static com.hankcs.hanlp.utility.Predefine.logger;
  */
 public class CRFSegment extends CharacterBasedGenerativeModelSegment
 {
+    private CRFModel crfModel;
+
+    public CRFSegment(CRFSegmentModel crfModel)
+    {
+        this.crfModel = crfModel;
+    }
+
+    public CRFSegment(String modelPath)
+    {
+        crfModel = GlobalObjectPool.get(modelPath);
+        if (crfModel != null)
+        {
+            return;
+        }
+        logger.info("CRF分词模型正在加载 " + modelPath);
+        long start = System.currentTimeMillis();
+        crfModel = CRFModel.loadTxt(modelPath, new CRFSegmentModel(new BinTrie<FeatureFunction>()));
+        if (crfModel == null)
+        {
+            String error = "CRF分词模型加载 " + modelPath + " 失败，耗时 " + (System.currentTimeMillis() - start) + " ms";
+            logger.severe(error);
+            throw new IllegalArgumentException(error);
+        }
+        else
+            logger.info("CRF分词模型加载 " + modelPath + " 成功，耗时 " + (System.currentTimeMillis() - start) + " ms");
+        GlobalObjectPool.put(modelPath, crfModel);
+    }
+
+    public CRFSegment()
+    {
+        this(HanLP.Config.CRFSegmentModelPath);
+    }
 
     @Override
     protected List<Term> segSentence(char[] sentence)
@@ -46,7 +81,7 @@ public class CRFSegment extends CharacterBasedGenerativeModelSegment
         char[] sentenceConverted = CharTable.convert(sentence);
         Table table = new Table();
         table.v = atomSegmentToTable(sentenceConverted);
-        CRFSegmentModel.crfModel.tag(table);
+        crfModel.tag(table);
         List<Term> termList = new LinkedList<Term>();
         if (HanLP.Config.DEBUG)
         {
@@ -96,7 +131,7 @@ public class CRFSegment extends CharacterBasedGenerativeModelSegment
             int i = 0;
             for (Term term : termList)
             {
-                if (term.nature != null) term.nature = vertexList.get(i + 1).getNature();
+                if (term.nature != null) term.nature = vertexList.get(i + 1).guessNature();
                 ++i;
             }
         }
@@ -347,96 +382,5 @@ public class CRFSegment extends CharacterBasedGenerativeModelSegment
         throw new UnsupportedOperationException("暂不支持");
 //        enablePartOfSpeechTagging(enable);
 //        return super.enableNumberQuantifierRecognize(enable);
-    }
-
-    /**
-     * 字符正规化表，相较于com/hankcs/hanlp/dictionary/other/CharTable.java,做了一些调整
-     * @author hankcs
-     */
-    static private class CharTable
-    {
-        /**
-         * 正规化使用的对应表
-         */
-        public static char[] CONVERT;
-
-        static
-        {
-            long start = System.currentTimeMillis();
-            try
-            {
-                ObjectInputStream in = new ObjectInputStream(new FileInputStream(HanLP.Config.CharTablePath));
-                CONVERT = (char[]) in.readObject();
-                in.close();
-            }
-            catch (Exception e)
-            {
-                logger.severe("字符正规化表加载失败，原因如下：");
-                e.printStackTrace();
-                System.exit(-1);
-            }
-            // see https://github.com/hankcs/HanLP/issues/13
-            CONVERT['“'] = '“';
-            CONVERT['”'] = '”';
-            CONVERT['.'] = '.';
-            CONVERT['．'] = '.';
-            CONVERT['。'] = '，';
-            CONVERT['！'] = '，';
-            CONVERT['，'] = '，';
-            CONVERT['…'] = '，';
-            for (int i = 0; i < CONVERT.length; i++)
-            {
-                if (CONVERT[i] == '。')
-                    CONVERT[i] = '，';
-            }
-
-            logger.info("字符正规化表加载成功：" + (System.currentTimeMillis() - start) + " ms");
-        }
-
-        /**
-         * 将一个字符正规化
-         * @param c 字符
-         * @return 正规化后的字符
-         */
-        public static char convert(char c)
-        {
-            return CONVERT[c];
-        }
-
-        public static char[] convert(char[] charArray)
-        {
-            char[] result = new char[charArray.length];
-            for (int i = 0; i < charArray.length; i++)
-            {
-                result[i] = CONVERT[charArray[i]];
-            }
-
-            return result;
-        }
-
-        public static String convert(String charArray)
-        {
-            assert charArray != null;
-            char[] result = new char[charArray.length()];
-            for (int i = 0; i < charArray.length(); i++)
-            {
-                result[i] = CONVERT[charArray.charAt(i)];
-            }
-
-            return new String(result);
-        }
-
-        /**
-         * 正规化一些字符（原地正规化）
-         * @param charArray 字符
-         */
-        public static void normalization(char[] charArray)
-        {
-            assert charArray != null;
-            for (int i = 0; i < charArray.length; i++)
-            {
-                charArray[i] = CONVERT[charArray[i]];
-            }
-        }
     }
 }
